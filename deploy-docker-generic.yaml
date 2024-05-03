@@ -1,0 +1,69 @@
+---
+- name: Make sure docker and docker-compose are installed
+  hosts: docker_server
+  become: true
+  become_user: root
+  tasks:
+    - name: Install Docker and Pip
+      ansible.builtin.package:
+        name: 
+          - docker
+          - pip
+        state: present
+        update_cache: true
+    - name: Install docker-compose
+      ansible.builtin.get_url:
+        url: https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-{{lookup('pipe', 'uname -s')}}-{{lookup('pipe', 'uname -m')}}
+        dest: /usr/local/bin/docker-compose
+        mode: +x 
+    - name: Uninstall requests package
+      ansible.builtin.yum:
+        name: python3-requests-2.25.1-1.amzn2023.0.3.noarch
+        state: absent
+    - name: Install docker and docker-compose python package
+      ansible.builtin.pip:
+        name: 
+          - docker==6.1.3
+          - docker-compose
+        state: present
+
+- name: Make sure docker is started
+  hosts: docker_server
+  become: true
+  become_user: root
+  tasks:
+    - name: Start docker deamon
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+
+- name: Create new linux user
+  hosts: docker_server
+  become: true
+  become_user: root
+  tasks:
+    - name: Create a new user
+      user:
+        name: ismail
+        groups: docker
+
+- name: Start docker containers
+  hosts: docker_server
+  become: true
+  become_user: ismail
+  vars_files:
+    - deploy-docker-vars.yaml
+  tasks:
+    - name: Copy docker-compose file to remote server
+      ansible.builtin.copy:
+        src: /home/ismail/ansible-projects/ansible_docker/docker-compose.yaml
+        dest: /home/ismail/docker-compose.yaml
+    - name: Docker login to dockerhub private registry
+      community.docker.docker_login:
+        registry_url: https://index.docker.io/v1/
+        username: ismailsdockers
+        password: "{{ docker_repo_password }}"
+    - name: Start docker containers using docker-compose
+      community.docker.docker_compose:
+        project_src: /home/ismail/
+        state: present
