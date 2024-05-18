@@ -112,17 +112,6 @@ resource "aws_instance" "myapp-server" {
     }
 }
 
-resource "null_resource" "configure_server_with_ansible" {
-    triggers = {
-        trigger = aws_instance.myapp-server.public_ip
-    }
-
-    provisioner "local-exec" {
-        working_dir = "/home/ismail/ansible-projects/ansible_docker/"
-        command = "ansible-playbook --inventory ${aws_instance.myapp-server.public_ip}, --private-key ${var.private_key_location} --user ec2-user deploy-docker-ec2-user.yaml"
-    }
-}
-
 output "aws-ami-id" {
     value = data.aws_ami.latest-amazon-linux-image.id
 }
